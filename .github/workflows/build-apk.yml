@@ -66,8 +66,10 @@ jobs:
       # legacy 'tools' package), so install the components directly.
       - name: Install SDK components
         run: |
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;27.3.13750724"
+          SDKMANAGER=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
+          echo "Using $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" "platforms;android-37" "build-tools;37.0.0" "ndk;27.3.13750724"
 
       - name: Build release APK (arm64 only, debug-signed via CI fallback)
         working-directory: android
