@@ -1,0 +1,80 @@
+name: Build APK (fork)
+
+# Manual build of an installable Android APK from this fork, with the
+# local API server unlocked. Signs with the debug key via the project's
+# own CI fallback (no release keystore in this fork), so the APK is for
+# personal sideloading only, not for store distribution.
+
+on:
+  workflow_dispatch:
+
+env:
+  ORG_GRADLE_PROJECT_rnllamaBuildFromSource: 'true'
+  RNLLAMA_SKIP_POSTINSTALL: '1'
+
+jobs:
+  build_android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Maximize build space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache
+          df -h /
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.0'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Derive the rnllama variant allowlist
+        run: |
+          set -euo pipefail
+          VARIANTS=$(node scripts/verify-android-payload.js --print-variants)
+          echo "Declared allowlist: $VARIANTS"
+          echo "ORG_GRADLE_PROJECT_rnllamaVariants=$VARIANTS" >> "$GITHUB_ENV"
+
+      - name: Create minimal .env (no secrets in this fork)
+        run: |
+          cat > .env << 'EOL'
+          FIREBASE_FUNCTIONS_URL=
+          SUPABASE_URL=
+          SUPABASE_ANON_KEY=
+          PALSHUB_API_BASE_URL=
+          APP_URL=pocketpal://app
+          ENABLE_PALSHUB_INTEGRATION=false
+          ENABLE_AUTHENTICATION=false
+          ENABLE_OFFLINE_MODE=true
+          GOOGLE_IOS_CLIENT_ID=
+          GOOGLE_WEB_CLIENT_ID=
+          EOL
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK components
+        run: |
+          sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;27.3.13750724"
+
+      - name: Build release APK (arm64 only, debug-signed via CI fallback)
+        working-directory: android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocketpal-local-api-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
