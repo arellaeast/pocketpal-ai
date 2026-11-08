@@ -13,7 +13,6 @@ import {
   MAX_ADMITTED_REQUESTS,
   OpenConnection,
 } from '../services/localApiServer';
-import {isPlusUnlocked} from '../services/plus/gate';
 import NativeHardwareInfo from '../specs/NativeHardwareInfo';
 import {modelStore} from './ModelStore';
 
@@ -138,9 +137,8 @@ class LocalApiServerStore {
   }
 
   setEnabled(enabled: boolean): void {
-    if (enabled && !isPlusUnlocked()) {
-      return;
-    }
+    // Fork change (arellaeast): the local API server is unlocked in this
+    // build; the upstream Plus gate on this toggle is removed.
     this.enabled = enabled;
     if (enabled) {
       this.start();

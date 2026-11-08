@@ -16,7 +16,7 @@ import {Divider, Sheet, TextInput} from '../../components';
 import {useTheme} from '../../hooks';
 import {t} from '../../locales';
 import type {Translations} from '../../locales/types';
-import {isPlusUnlocked, openPlus} from '../../services/plus/gate';
+import {openPlus} from '../../services/plus/gate';
 import {
   isValidLocalApiPort,
   LocalApiServerError,
@@ -58,7 +58,8 @@ export const LocalApiServerCard: React.FC = observer(() => {
   }, [store.status, store.port]);
 
   const editable = store.status === 'stopped';
-  const locked = !isPlusUnlocked();
+  // Fork change (arellaeast): unlocked in this build, no Plus gate.
+  const locked = false;
   const servedModel = store.servedModelId ? modelStore.activeModel : undefined;
 
   const commitPort = (): boolean => {
