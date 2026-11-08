@@ -61,11 +61,12 @@ jobs:
           GOOGLE_WEB_CLIENT_ID=
           EOL
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # The runner image already carries the Android SDK; the setup-android
+      # action fails on current images (it asks sdkmanager for the removed
+      # legacy 'tools' package), so install the components directly.
       - name: Install SDK components
         run: |
+          yes | sdkmanager --licenses > /dev/null
           sdkmanager "platforms;android-37" "build-tools;37.0.0" "ndk;27.3.13750724"
 
       - name: Build release APK (arm64 only, debug-signed via CI fallback)
