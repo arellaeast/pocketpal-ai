@@ -79,6 +79,32 @@ jobs:
           test -n "$PLAT" && test -n "$BT" && test -n "$NDK"
           "$SDKMANAGER" --channel=3 "$PLAT" "$BT" "$NDK"
 
+      # Upstream injects the real file from a secret. Our fork build has no
+      # Firebase project behind it, so a well-formed placeholder with the
+      # app's package name satisfies the plugin; Firebase features stay off.
+      - name: Write placeholder google-services.json
+        run: |
+          cat > android/app/google-services.json << 'EOL'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "pocketpal-fork-local"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000000000",
+                  "android_client_info": {"package_name": "com.pocketpalai"}
+                },
+                "oauth_client": [],
+                "api_key": [{"current_key": "AIzaSyDummyKeyForLocalForkBuildOnly00000"}],
+                "services": {"appinvite_service": {"other_platform_oauth_client": []}}
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOL
+
       - name: Build release APK (arm64 only, debug-signed via CI fallback)
         working-directory: android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
@@ -87,5 +113,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pocketpal-local-api-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
