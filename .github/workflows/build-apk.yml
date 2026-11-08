@@ -68,8 +68,16 @@ jobs:
         run: |
           SDKMANAGER=$(ls "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | head -1)
           echo "Using $SDKMANAGER"
-          yes | "$SDKMANAGER" --licenses > /dev/null
-          "$SDKMANAGER" "platforms;android-37" "build-tools;37.0.0" "ndk;27.3.13750724"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          # The exact package ids for the newest platform shift between
+          # channels, so resolve them from the catalog instead of guessing.
+          "$SDKMANAGER" --list --channel=3 > /tmp/sdklist.txt 2>/dev/null || true
+          PLAT=$(grep -oE "platforms;android-37[^[:space:]]*" /tmp/sdklist.txt | sort -u | head -1)
+          BT=$(grep -oE "build-tools;37\.0\.0[^[:space:]]*" /tmp/sdklist.txt | sort -u | head -1)
+          NDK=$(grep -oE "ndk;27\.3\.13750724[^[:space:]]*" /tmp/sdklist.txt | sort -u | head -1)
+          echo "Resolved: platform=$PLAT build-tools=$BT ndk=$NDK"
+          test -n "$PLAT" && test -n "$BT" && test -n "$NDK"
+          "$SDKMANAGER" --channel=3 "$PLAT" "$BT" "$NDK"
 
       - name: Build release APK (arm64 only, debug-signed via CI fallback)
         working-directory: android
