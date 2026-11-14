@@ -4,15 +4,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import NativeWakeWord from '../specs/NativeWakeWord';
 
-export type WakeWordPhraseKey = 'hey_jarvis' | 'alexa' | 'hey_mycroft';
+export type WakeWordPhraseKey = 'hey_jarvis' | 'alexa' | 'hey_mycroft' | 'custom';
 
-export const WAKE_WORD_PHRASES: {key: WakeWordPhraseKey; label: string}[] = [
+export const WAKE_WORD_PHRASES: {
+  key: Exclude<WakeWordPhraseKey, 'custom'>;
+  label: string;
+}[] = [
   {key: 'hey_jarvis', label: 'Hey Jarvis'},
   {key: 'alexa', label: 'Alexa'},
   {key: 'hey_mycroft', label: 'Hey Mycroft'},
 ];
 
 export const DEFAULT_WAKE_THRESHOLD = 0.5;
+/** Taught phrases score by template similarity, a different scale. */
+export const DEFAULT_CUSTOM_WAKE_THRESHOLD = 0.88;
 
 /**
  * Settings and runtime state for the hands-free wake word (fork feature).
@@ -27,6 +32,9 @@ class WakeWordStore {
   enabled = false;
   phraseKey: WakeWordPhraseKey = 'hey_jarvis';
   threshold = DEFAULT_WAKE_THRESHOLD;
+  customThreshold = DEFAULT_CUSTOM_WAKE_THRESHOLD;
+  /** The taught phrase's name, when one exists ('' when none). */
+  customName = '';
 
   /** The native service is running (runtime only, never persisted). */
   listening = false;
@@ -39,16 +47,34 @@ class WakeWordStore {
     makeAutoObservable(this, {}, {autoBind: true});
     makePersistable(this, {
       name: 'WakeWordStore',
-      properties: ['enabled', 'phraseKey', 'threshold'],
+      properties: [
+        'enabled',
+        'phraseKey',
+        'threshold',
+        'customThreshold',
+        'customName',
+      ],
       storage: AsyncStorage,
     });
   }
 
+  get hasCustom(): boolean {
+    return this.customName.length > 0;
+  }
+
   get phraseLabel(): string {
+    if (this.phraseKey === 'custom') {
+      return this.hasCustom ? this.customName : WAKE_WORD_PHRASES[0].label;
+    }
     return (
       WAKE_WORD_PHRASES.find(phrase => phrase.key === this.phraseKey)?.label ??
       WAKE_WORD_PHRASES[0].label
     );
+  }
+
+  /** The threshold the native listener should run with right now. */
+  get activeThreshold(): number {
+    return this.phraseKey === 'custom' ? this.customThreshold : this.threshold;
   }
 
   setEnabled(enabled: boolean): void {
@@ -68,12 +94,56 @@ class WakeWordStore {
   }
 
   startNative(): void {
+    if (this.phraseKey === 'custom' && !this.hasCustom) {
+      // No taught phrase on the phone: nothing the service could load.
+      this.listening = false;
+      return;
+    }
     try {
-      NativeWakeWord.startListening(this.phraseKey, this.threshold);
+      NativeWakeWord.startListening(this.phraseKey, this.activeThreshold);
       this.listening = true;
     } catch (error) {
       console.warn('[WakeWordStore] failed to start listener:', error);
       this.listening = false;
+    }
+  }
+
+  /** Re-read the taught phrase (if any) from the native side. */
+  async refreshCustom(): Promise<void> {
+    try {
+      const info = JSON.parse(await NativeWakeWord.customWakeWordInfo()) as {
+        exists: boolean;
+        name: string;
+      };
+      runInAction(() => {
+        this.customName = info.exists ? info.name : '';
+      });
+    } catch (error) {
+      console.warn('[WakeWordStore] custom wake word read failed:', error);
+    }
+  }
+
+  /** A teach session finished: the taught phrase becomes the active one. */
+  onCustomTaught(name: string): void {
+    this.customName = name;
+    this.phraseKey = 'custom';
+    if (this.enabled && !this.suspended) {
+      this.startNative();
+    }
+  }
+
+  deleteCustom(): void {
+    try {
+      NativeWakeWord.deleteCustomWakeWord();
+    } catch (error) {
+      console.warn('[WakeWordStore] failed to delete taught phrase:', error);
+    }
+    this.customName = '';
+    if (this.phraseKey === 'custom') {
+      this.phraseKey = 'hey_jarvis';
+      if (this.enabled && !this.suspended) {
+        this.startNative();
+      }
     }
   }
 

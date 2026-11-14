@@ -290,7 +290,29 @@
       "micDenied": "Microphone permission is needed for the wake word listener. Allow it to turn this on.",
       "micBlocked": "Microphone permission is blocked for PocketPal. Open Settings to allow it.",
       "openSettings": "Open Settings",
-      "batteryNote": "Always listening uses some battery, so it suits a phone that stays plugged in."
+      "batteryNote": "Always listening uses some battery, so it suits a phone that stays plugged in.",
+      "teachButton": "Teach it a name",
+      "reteachButton": "Reteach",
+      "deleteCustom": "Delete",
+      "customPhrase": "Your phrase",
+      "noCustom": "Not taught yet. Teach it any name you like.",
+      "teach": {
+        "title": "Teach it a name",
+        "intro": "Pick any name or phrase, two or three syllables works best, then say it out loud like you are calling it from the next room. Record {{target}} good takes. The phone learns the phrase from your voice, and the recordings are thrown away as soon as each one is learned from.",
+        "nameLabel": "Name or phrase",
+        "namePlaceholder": "e.g. Hey Nova",
+        "record": "Record a take",
+        "recording": "Listening… tap to stop",
+        "progress": "{{count}} of {{target}} takes",
+        "finish": "Finish",
+        "finishHint": "You can finish after {{min}} good takes.",
+        "goodTake": "Got it. That one sounded right.",
+        "tooQuiet": "That was too quiet. Move closer and speak up a bit.",
+        "tooShort": "That was too short. Say the whole phrase.",
+        "tooLong": "That ran long. Just the phrase, nothing before or after.",
+        "outlier": "That one sounded different from the others. Say it the same way as before.",
+        "finishFailed": "That did not save. Record a few more takes and try again."
+      }
     }
   },
   "memory": {

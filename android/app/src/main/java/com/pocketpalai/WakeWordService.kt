@@ -103,10 +103,23 @@ class WakeWordService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    val phrase = WakePhrases.byKey(intent?.getStringExtra(EXTRA_PHRASE) ?: WakePhrases.ALL[0].key)
+    val phraseKey = intent?.getStringExtra(EXTRA_PHRASE) ?: WakePhrases.ALL[0].key
     val threshold = intent?.getDoubleExtra(EXTRA_THRESHOLD, 0.5) ?: 0.5
 
-    val notification = buildNotification(phrase.label)
+    val phraseLabel: String
+    if (phraseKey == WakePhrases.CUSTOM_KEY) {
+      val template = CustomWakeWordTemplate.load(this)
+      if (template == null) {
+        // Asked to listen for a taught phrase that does not exist.
+        stopSelf()
+        return START_NOT_STICKY
+      }
+      phraseLabel = template.name
+    } else {
+      phraseLabel = WakePhrases.byKey(phraseKey).label
+    }
+
+    val notification = buildNotification(phraseLabel)
     if (Build.VERSION.SDK_INT >= 34) {
       startForeground(
           NOTIFICATION_ID,
@@ -119,7 +132,7 @@ class WakeWordService : Service() {
     isRunning = true
 
     stopCapture()
-    startCapture(phrase, threshold)
+    startCapture(phraseKey, threshold)
     return START_STICKY
   }
 
@@ -156,14 +169,22 @@ class WakeWordService : Service() {
         .build()
   }
 
-  private fun startCapture(phrase: WakePhrase, threshold: Double) {
+  private fun startCapture(phraseKey: String, threshold: Double) {
     capturing = true
     captureThread =
         Thread {
-              var detector: WakeWordDetector? = null
+              var detector: WakeScorer? = null
               var record: AudioRecord? = null
               try {
-                detector = WakeWordDetector(this, phrase)
+                detector =
+                    if (phraseKey == WakePhrases.CUSTOM_KEY) {
+                      val template =
+                          CustomWakeWordTemplate.load(this)
+                              ?: throw IllegalStateException("Custom wake word template missing")
+                      CustomWakeWordDetector(this, template)
+                    } else {
+                      WakeWordDetector(this, WakePhrases.byKey(phraseKey))
+                    }
                 val minBuffer =
                     AudioRecord.getMinBufferSize(
                         WakeWordDetector.SAMPLE_RATE,

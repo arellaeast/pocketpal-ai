@@ -1,4 +1,4 @@
-import React, {useContext, useState} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import {Platform, View} from 'react-native';
 
 import {observer} from 'mobx-react-lite';
@@ -19,6 +19,7 @@ import {
 } from '../../utils/asrMicPermission';
 
 import {createStyles} from './styles';
+import {WakeWordTeachSheet} from './WakeWordTeachSheet';
 
 /**
  * Settings for the hands-free wake word (fork feature). The listener is an
@@ -32,6 +33,13 @@ export const WakeWordCard: React.FC = observer(() => {
   const store = wakeWordStore;
 
   const [micIssue, setMicIssue] = useState<MicPermissionResult | null>(null);
+  const [teachVisible, setTeachVisible] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      wakeWordStore.refreshCustom();
+    }
+  }, []);
 
   if (Platform.OS !== 'android') {
     return null;
@@ -56,7 +64,18 @@ export const WakeWordCard: React.FC = observer(() => {
     store.setPhraseKey(key);
   };
 
+  const openTeachSheet = async () => {
+    const permission = await ensureMicPermission();
+    if (permission !== 'granted') {
+      setMicIssue(permission);
+      return;
+    }
+    setMicIssue(null);
+    setTeachVisible(true);
+  };
+
   return (
+    <>
     <Card elevation={0} style={styles.card} testID="wake-word-card">
       <Card.Title title={copy.title} />
       <Card.Content>
@@ -123,7 +142,55 @@ export const WakeWordCard: React.FC = observer(() => {
                   {phrase.label}
                 </Button>
               ))}
+              {store.hasCustom && (
+                <Button
+                  testID="wake-word-phrase-custom"
+                  mode={
+                    store.phraseKey === 'custom' ? 'contained' : 'outlined'
+                  }
+                  compact
+                  onPress={() => onPhrasePress('custom')}>
+                  {store.customName}
+                </Button>
+              )}
             </View>
+          </View>
+
+          <View style={styles.switchContainer}>
+            <View style={styles.textContainer}>
+              <Text variant="titleMedium" style={styles.textLabel}>
+                {copy.customPhrase}
+              </Text>
+              <Text variant="labelSmall" style={styles.textDescription}>
+                {store.hasCustom ? store.customName : copy.noCustom}
+              </Text>
+            </View>
+            {store.hasCustom ? (
+              <View style={styles.switchContainer}>
+                <Button
+                  testID="wake-word-teach-reteach"
+                  mode="text"
+                  compact
+                  onPress={openTeachSheet}>
+                  {copy.reteachButton}
+                </Button>
+                <Button
+                  testID="wake-word-teach-delete"
+                  mode="text"
+                  compact
+                  onPress={() => store.deleteCustom()}>
+                  {copy.deleteCustom}
+                </Button>
+              </View>
+            ) : (
+              <Button
+                testID="wake-word-teach-open"
+                mode="outlined"
+                compact
+                onPress={openTeachSheet}>
+                {copy.teachButton}
+              </Button>
+            )}
           </View>
 
           <Text variant="labelSmall" style={styles.textDescription}>
@@ -132,5 +199,11 @@ export const WakeWordCard: React.FC = observer(() => {
         </View>
       </Card.Content>
     </Card>
+
+    <WakeWordTeachSheet
+      isVisible={teachVisible}
+      onClose={() => setTeachVisible(false)}
+    />
+    </>
   );
 });
