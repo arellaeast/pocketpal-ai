@@ -4,7 +4,7 @@ import {makeAutoObservable} from 'mobx';
 import {makePersistable} from 'mobx-persist-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import {isPlusUnlocked, openPlus} from '../services/plus/gate';
+import {openPlus} from '../services/plus/gate';
 import {VoiceEntitlement, voiceModeDeviceSupported} from '../services/voice';
 
 import {modelStore} from './ModelStore';
@@ -110,6 +110,8 @@ export class VoiceModeStore {
 export const voiceModeStore = new VoiceModeStore();
 
 export const voiceEntitlement = new VoiceEntitlement({
-  isUnlocked: () => voiceModeStore.unlockOverride ?? isPlusUnlocked(),
+  // Fork change (arellaeast): voice mode is unlocked in this build, no Plus
+  // gate (mirrors the local API server unlock). The E2E override still wins.
+  isUnlocked: () => voiceModeStore.unlockOverride ?? true,
   openPaywall: ({onUnlocked}) => openPlus({onUnlocked}),
 });

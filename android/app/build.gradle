@@ -86,6 +86,10 @@ android {
     compileSdk rootProject.ext.compileSdkVersion
 
     namespace "com.pocketpal"
+    aaptOptions {
+        // Wake word models are memory-mapped from assets by TFLite.
+        noCompress 'tflite'
+    }
     defaultConfig {
         applicationId "com.pocketpalai"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -212,6 +216,9 @@ tasks.withType(com.facebook.react.tasks.BundleHermesCTask).configureEach {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+
+    // Wake word detection (openWakeWord models) in WakeWordService.
+    implementation("org.tensorflow:tensorflow-lite:2.14.0")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")

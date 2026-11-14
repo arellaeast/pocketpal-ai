@@ -279,6 +279,18 @@
         "stoppedListening": "The server stopped unexpectedly. Turn it off and on again.",
         "keyUnavailable": "Could not read the API key. Unlock your phone, then turn the server off and on again."
       }
+    },
+    "wakeWord": {
+      "title": "Wake word",
+      "enable": "Hands-free wake word",
+      "enableDescription": "A small listener runs on this phone and waits for the wake phrase. Say it from anywhere, even with the app closed, and a voice conversation with the loaded model starts. Audio is checked on the phone and never recorded or uploaded.",
+      "phrase": "Wake phrase",
+      "listening": "Listening now. Say \u201C{{phrase}}\u201D to start talking.",
+      "off": "Off. Turn it on to wake this phone by voice.",
+      "micDenied": "Microphone permission is needed for the wake word listener. Allow it to turn this on.",
+      "micBlocked": "Microphone permission is blocked for PocketPal. Open Settings to allow it.",
+      "openSettings": "Open Settings",
+      "batteryNote": "Always listening uses some battery, so it suits a phone that stays plugged in."
     }
   },
   "memory": {

@@ -23,6 +23,7 @@ import {
 import {asrStore, purchaseStore, ttsStore, uiStore} from './src/store';
 import {useTheme} from './src/hooks';
 import {useDeepLinking} from './src/hooks/useDeepLinking';
+import {useWakeWordListener} from './src/hooks/useWakeWord';
 import {useNavigationBarAppearance} from './src/hooks/useNavigationBarAppearance';
 import {Theme} from './src/utils/types';
 
@@ -78,6 +79,13 @@ const screenWidth = Dimensions.get('window').width;
 // Component that handles deep linking - must be inside NavigationContainer
 const DeepLinkHandler = () => {
   useDeepLinking();
+  return null;
+};
+
+// Keeps the hands-free wake word listener in sync and routes detections
+// to the wake word store (fork feature).
+const WakeWordHandler = () => {
+  useWakeWordListener();
   return null;
 };
 
@@ -139,6 +147,7 @@ const App = observer(() => {
               <MarkdownProvider>
                 <NavigationContainer>
                   <DeepLinkHandler />
+                  <WakeWordHandler />
                   <PlusA11yScope>
                     <BottomSheetModalProvider>
                       <SwitchPoint

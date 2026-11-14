@@ -2,7 +2,8 @@ import React, {useMemo, useRef, ReactNode, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 
 import {observer} from 'mobx-react';
-import {runInAction} from 'mobx';
+import {reaction, runInAction} from 'mobx';
+import {useFocusEffect, useIsFocused} from '@react-navigation/native';
 
 import {
   Bubble,
@@ -29,6 +30,7 @@ import {
   ttsStore,
   uiStore,
   voiceModeStore,
+  wakeWordStore,
 } from '../../store';
 import {hasVideoCapability} from '../../utils/pal-capabilities';
 
@@ -109,6 +111,52 @@ export const ChatScreen: React.FC = observer(() => {
   const voiceControls = useMemo(
     () => ({tapCloud, toggleMute, end}),
     [tapCloud, toggleMute, end],
+  );
+
+  // Hands-free wake word (fork feature): a detection stored by the wake
+  // word store opens voice mode here, the same entry the mic button uses.
+  const isFocused = useIsFocused();
+  const requestVoiceEntry = voiceMode.requestEntry;
+  const startFromWakeWord = React.useCallback(() => {
+    if (!wakeWordStore.pendingVoiceStart) {
+      return;
+    }
+    wakeWordStore.clearPendingVoiceStart();
+    requestVoiceEntry({
+      openModelPicker: () => {},
+      focusInput: () => {},
+    });
+  }, [requestVoiceEntry]);
+  React.useEffect(
+    () =>
+      reaction(
+        () => [wakeWordStore.pendingVoiceStart, isFocused] as const,
+        ([pending, focused]) => {
+          if (pending && focused) {
+            startFromWakeWord();
+          }
+        },
+      ),
+    [isFocused, startFromWakeWord],
+  );
+  useFocusEffect(startFromWakeWord);
+
+  // While a voice conversation owns the microphone, park the wake word
+  // listener; resume it when the conversation closes.
+  React.useEffect(
+    () =>
+      reaction(
+        () => voiceModeStore.phase,
+        phase => {
+          if (phase === 'closed') {
+            wakeWordStore.resumeNative();
+          } else {
+            wakeWordStore.clearPendingVoiceStart();
+            wakeWordStore.suspendNative();
+          }
+        },
+      ),
+    [],
   );
   const handleCloseVoiceTeaser = React.useCallback(
     () => dismissSheet('teaser'),
