@@ -43,6 +43,8 @@ class WakeWordStore {
   suspended = false;
   /** A detection is waiting for the chat screen to open voice mode. */
   pendingVoiceStart = false;
+  /** Last accepted detection, for double-delivery dedupe. */
+  private lastDetectionAt = 0;
 
   constructor() {
     makeAutoObservable(this, {}, {autoBind: true});
@@ -253,6 +255,17 @@ class WakeWordStore {
 
   /** A wake word detection arrived from the native listener. */
   handleDetected(): void {
+    // One detection can arrive twice (the device event, plus the
+    // persisted pending wake picked up by the foreground sync the
+    // relaunch triggers), and a second entry request landing while
+    // the first is still starting bounced the session open and shut.
+    // A real re-wake cannot be usefully served within a few seconds
+    // anyway, so treat repeats inside that window as the same wake.
+    const now = Date.now();
+    if (now - this.lastDetectionAt < 3000) {
+      return;
+    }
+    this.lastDetectionAt = now;
     this.pendingVoiceStart = true;
   }
 

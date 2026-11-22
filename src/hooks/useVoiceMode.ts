@@ -127,6 +127,7 @@ class VoiceModeController {
   private captureSettled: Promise<void> = Promise.resolve();
   private micStarting: Promise<void> | null = null;
   private micWatchdog: ReturnType<typeof setTimeout> | null = null;
+  private backgroundExitTimer: ReturnType<typeof setTimeout> | null = null;
   private micRetried = false;
   private pausedByInterruption = false;
   private actions: VoiceEntryActions = {
@@ -322,6 +323,7 @@ class VoiceModeController {
   }
 
   exit(reason: string): Promise<void> {
+    this.clearBackgroundExit();
     if (!this.open) {
       return this.exiting ?? Promise.resolve();
     }
@@ -398,17 +400,36 @@ class VoiceModeController {
       return;
     }
     if (next === 'background') {
-      this.exit('background');
-    } else if (next === 'active' && this.pausedByInterruption) {
-      this.resumeAfterInterruption('foreground');
-    } else if (
-      next === 'active' &&
-      previous === 'inactive' &&
-      voiceModeStore.phase === 'listening'
-    ) {
-      vtrace('mic.restart', {why: 'foreground'});
-      this.stopCapture();
-      this.startCapture(this.session);
+      // The wake word service relaunches the activity on detection,
+      // which flickers the app through background for a few
+      // milliseconds. Exiting on the flicker killed just-opened
+      // sessions and released the ASR context mid-prepare ("ASR
+      // context released while loading"). Make a backgrounding prove
+      // itself briefly first; a real one still exits, a beat later.
+      this.clearBackgroundExit();
+      this.backgroundExitTimer = setTimeout(() => {
+        this.backgroundExitTimer = null;
+        this.exit('background');
+      }, 800);
+    } else if (next === 'active') {
+      this.clearBackgroundExit();
+      if (this.pausedByInterruption) {
+        this.resumeAfterInterruption('foreground');
+      } else if (
+        previous === 'inactive' &&
+        voiceModeStore.phase === 'listening'
+      ) {
+        vtrace('mic.restart', {why: 'foreground'});
+        this.stopCapture();
+        this.startCapture(this.session);
+      }
+    }
+  }
+
+  private clearBackgroundExit(): void {
+    if (this.backgroundExitTimer) {
+      clearTimeout(this.backgroundExitTimer);
+      this.backgroundExitTimer = null;
     }
   }
 
