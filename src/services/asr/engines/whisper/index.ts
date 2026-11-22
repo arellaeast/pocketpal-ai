@@ -189,23 +189,40 @@ export class WhisperAsrEngine implements AsrEngine {
       return this.loading.promise;
     }
     const previous = this.loading?.promise;
-    const generation = this.generation;
     const promise = (async () => {
       await previous?.catch(() => {});
-      await this.releaseContext();
-      const context = await initWhisper({
-        filePath: this.getModelPath(tier),
-        // CoreML sidecar is an optional accelerator; absence degrades to the
-        // GGUF CPU path. Falling back to CPU never blocks transcription.
-        useCoreMLIos: Platform.OS === 'ios',
-      });
-      if (generation !== this.generation) {
+      // A session that is ending releases the engine asynchronously,
+      // and that release can land while this load is in flight (the
+      // wake-word flow re-enters a second or two after the last
+      // session closed). The release bumps `generation`, which used
+      // to fail the load outright ("ASR context released while
+      // loading") even though the release was already stale news.
+      // Retry once with the post-release generation instead: the
+      // release has completed by then, so the second load runs
+      // undisturbed.
+      for (let attempt = 0; ; attempt++) {
+        await this.releaseContext();
+        const generation = this.generation;
+        const context = await initWhisper({
+          filePath: this.getModelPath(tier),
+          // CoreML sidecar is an optional accelerator; absence degrades to the
+          // GGUF CPU path. Falling back to CPU never blocks transcription.
+          useCoreMLIos: Platform.OS === 'ios',
+        });
+        if (generation === this.generation) {
+          this.context = context;
+          this.loadedTier = tier;
+          return context;
+        }
         await context.release().catch(() => {});
-        throw new Error('ASR context released while loading');
+        if (this.context && this.loadedTier === tier) {
+          // Another load won the race while this one was retrying.
+          return this.context;
+        }
+        if (attempt >= 1) {
+          throw new Error('ASR context released while loading');
+        }
       }
-      this.context = context;
-      this.loadedTier = tier;
-      return context;
     })();
     const loading = {tier, promise};
     this.loading = loading;
@@ -263,6 +280,14 @@ export class WhisperAsrEngine implements AsrEngine {
 
   /** Stops an in-flight decode and waits for it before freeing the context. */
   async release(): Promise<void> {
+    // Let an in-flight load settle first: bumping the generation
+    // mid-load is what poisons it (see ensureContext). A release that
+    // belongs to a session on its way out must not kill the next
+    // session's load just because their teardown and startup overlap.
+    const inFlightLoad = this.loading?.promise;
+    if (inFlightLoad) {
+      await inFlightLoad.catch(() => {});
+    }
     this.generation++;
     this.loading = null;
     await this.stopTranscription?.().catch(() => {});
