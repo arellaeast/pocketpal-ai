@@ -93,7 +93,7 @@ class WakeWordStore {
     }
   }
 
-  startNative(): void {
+  startNative(isRetry: boolean = false): void {
     if (this.phraseKey === 'custom' && !this.hasCustom) {
       // No taught phrase on the phone: nothing the service could load.
       this.listening = false;
@@ -104,13 +104,19 @@ class WakeWordStore {
       this.listening = true;
       // Starting is only a request: the service can still die on its
       // capture thread (e.g. the wake word models fail to load), so
-      // verify a moment later instead of trusting the request.
+      // verify a moment later instead of trusting the request. If it
+      // died, restart it once before believing it is off; a listener
+      // that silently stays off reads as "the wake word is broken".
       setTimeout(() => {
         if (!this.enabled || this.suspended) {
           return;
         }
         NativeWakeWord.isListening()
           .then(running => {
+            if (!running && !isRetry) {
+              this.startNative(true);
+              return;
+            }
             runInAction(() => {
               this.listening = running;
             });

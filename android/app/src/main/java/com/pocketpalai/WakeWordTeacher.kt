@@ -1,6 +1,7 @@
 package com.pocketpal
 
 import android.content.Context
+import android.util.Log
 import kotlin.math.sqrt
 
 /**
@@ -30,6 +31,8 @@ object WakeWordTeacher {
   const val TARGET_TAKES = 15
   const val MIN_TAKES = 10
 
+  private const val TAG = "WakeWordTeacher"
+
   private const val PAD_SAMPLES = 8000 // 0.5 s of silence before each take
   private const val MIN_SPEECH_FRAMES = 4
   private const val MAX_SPEECH_FRAMES = 40
@@ -58,6 +61,19 @@ object WakeWordTeacher {
 
   @Synchronized
   fun analyzeTake(context: Context, pcm: ShortArray): TakeResult {
+    Log.i(TAG, "analyzeTake: ${pcm.size} samples, ${takeTemplates.size} takes so far")
+    val result =
+        try {
+          analyzeTakeInner(context, pcm)
+        } catch (t: Throwable) {
+          Log.e(TAG, "analyzeTake failed", t)
+          throw t
+        }
+    Log.i(TAG, "analyzeTake verdict: $result")
+    return result
+  }
+
+  private fun analyzeTakeInner(context: Context, pcm: ShortArray): TakeResult {
     val activePipeline =
         pipeline ?: WakeWordPipeline(context.applicationContext).also { pipeline = it }
 
@@ -80,6 +96,11 @@ object WakeWordTeacher {
     }
 
     val peak = frameRms.maxOrNull() ?: 0.0
+    Log.i(
+        TAG,
+        "frames=${embeddings.size} peakRms=$peak active=" +
+            frameRms.count { it > ACTIVE_FRACTION * peak },
+    )
     if (peak < MIN_PEAK_RMS) {
       return TakeResult.Rejected(RejectReason.TOO_QUIET, takeTemplates.size)
     }
@@ -90,6 +111,7 @@ object WakeWordTeacher {
     val from = maxOf(0, activeIndices.first() - 1)
     val to = minOf(embeddings.size, activeIndices.last() + 2)
     val speechFrames = to - from
+    Log.i(TAG, "speechFrames=$speechFrames (from=$from to=$to)")
     if (speechFrames < MIN_SPEECH_FRAMES) {
       return TakeResult.Rejected(RejectReason.TOO_SHORT, takeTemplates.size)
     }
@@ -102,7 +124,9 @@ object WakeWordTeacher {
 
     if (takeTemplates.isNotEmpty()) {
       val runningMean = meanOf(takeTemplates)
-      if (sequenceSimilarity(takeTemplate, runningMean) < OUTLIER_MIN_SIMILARITY) {
+      val similarity = sequenceSimilarity(takeTemplate, runningMean)
+      Log.i(TAG, "similarity vs running mean: $similarity")
+      if (similarity < OUTLIER_MIN_SIMILARITY) {
         return TakeResult.Rejected(RejectReason.OUTLIER, takeTemplates.size)
       }
     }

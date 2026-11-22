@@ -60,6 +60,12 @@ export const WakeWordTeachSheet: React.FC<{
   const listenerRef = useRef<{remove: () => void} | null>(null);
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishedRef = useRef(false);
+  // The auto-stop timer is armed when recording starts, so it captures
+  // that render's closures; route it (and the stop check) through refs so
+  // it acts on the current phase instead of the phase at record time.
+  const phaseRef = useRef<TakePhase>('idle');
+  phaseRef.current = phase;
+  const finishTakeRef = useRef<() => Promise<void>>(async () => {});
 
   // Session lifecycle: opening suspends the listener and starts a native
   // teaching session; closing (any path) ends it and resumes listening.
@@ -142,11 +148,14 @@ export const WakeWordTeachSheet: React.FC<{
     });
     AudioRecord.start();
     setPhase('recording');
-    stopTimerRef.current = setTimeout(() => finishTake(), MAX_TAKE_MS);
+    stopTimerRef.current = setTimeout(
+      () => finishTakeRef.current(),
+      MAX_TAKE_MS,
+    );
   };
 
   const finishTake = async () => {
-    if (phase !== 'recording') {
+    if (phaseRef.current !== 'recording') {
       return;
     }
     stopRecording();
@@ -182,10 +191,11 @@ export const WakeWordTeachSheet: React.FC<{
       }
     } catch (error) {
       console.warn('[WakeWordTeachSheet] take analysis failed:', error);
-      setFeedback(copy.outlier);
+      setFeedback(copy.takeFailed);
     }
     setPhase('idle');
   };
+  finishTakeRef.current = finishTake;
 
   const onRecordPress = () => {
     if (phase === 'idle') {

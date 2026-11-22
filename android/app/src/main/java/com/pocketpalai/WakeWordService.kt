@@ -105,6 +105,7 @@ class WakeWordService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     val phraseKey = intent?.getStringExtra(EXTRA_PHRASE) ?: WakePhrases.ALL[0].key
     val threshold = intent?.getDoubleExtra(EXTRA_THRESHOLD, 0.5) ?: 0.5
+    Log.i(TAG, "onStartCommand phrase=$phraseKey threshold=$threshold")
 
     val phraseLabel: String
     if (phraseKey == WakePhrases.CUSTOM_KEY) {
@@ -137,6 +138,7 @@ class WakeWordService : Service() {
   }
 
   override fun onDestroy() {
+    Log.i(TAG, "onDestroy")
     stopCapture()
     isRunning = false
     super.onDestroy()
@@ -253,6 +255,7 @@ class WakeWordService : Service() {
   }
 
   private fun onDetected() {
+    Log.i(TAG, "wake word detected")
     markPendingWake(this)
     detectionListener?.invoke()
     val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
