@@ -59,11 +59,17 @@ class WakeWordPipeline(context: Context) {
 
   init {
     val appContext = context.applicationContext
-    val options = Interpreter.Options().setNumThreads(2)
+    // No XNNPack: the interpreter constructor allocates tensors with the
+    // default delegate already applied, and the mel model's input shape is
+    // dynamic (-1 samples), which overflows that allocation
+    // ("BytesRequired number of elements overflowed") on some devices —
+    // the resize below happens after construction, too late to help.
+    // Plain CPU inference is fast enough for these small models.
+    val options = Interpreter.Options().setNumThreads(2).setUseXNNPACK(false)
 
     melInterpreter = Interpreter(loadModel(appContext, MEL_ASSET), options)
     // The mel model takes a variable number of samples; fix it to one
-    // frame plus history before allocating (also keeps XNNPack happy).
+    // frame plus history before allocating.
     melInterpreter.resizeInput(0, intArrayOf(1, FRAME_SAMPLES + HISTORY_SAMPLES))
     melInterpreter.allocateTensors()
     melOutputFloats = melInterpreter.getOutputTensor(0).numElements()

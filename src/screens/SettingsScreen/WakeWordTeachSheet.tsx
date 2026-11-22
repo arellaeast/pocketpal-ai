@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useRef, useState} from 'react';
-import {Keyboard, View} from 'react-native';
+import {DeviceEventEmitter, Keyboard, View} from 'react-native';
 
 import AudioRecord from '@fugood/react-native-audio-pcm-stream';
 import {fromByteArray, toByteArray} from 'base64-js';
@@ -75,12 +75,22 @@ export const WakeWordTeachSheet: React.FC<{
     setFeedback(null);
     setFinishFailed(false);
     wakeWordStore.suspendNative();
+    // A native start failure arrives as an event (see NativeWakeWord);
+    // show it instead of letting the sheet sit there looking ready.
+    const errorSubscription = DeviceEventEmitter.addListener(
+      'WakeWordTeachError',
+      () => {
+        setFeedback(copy.beginFailed);
+      },
+    );
     try {
       NativeWakeWord.beginTeaching();
     } catch (error) {
       console.warn('[WakeWordTeachSheet] beginTeaching failed:', error);
+      setFeedback(copy.beginFailed);
     }
     return () => {
+      errorSubscription.remove();
       if (session !== sessionRef.current) {
         return;
       }

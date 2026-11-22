@@ -102,6 +102,21 @@ class WakeWordStore {
     try {
       NativeWakeWord.startListening(this.phraseKey, this.activeThreshold);
       this.listening = true;
+      // Starting is only a request: the service can still die on its
+      // capture thread (e.g. the wake word models fail to load), so
+      // verify a moment later instead of trusting the request.
+      setTimeout(() => {
+        if (!this.enabled || this.suspended) {
+          return;
+        }
+        NativeWakeWord.isListening()
+          .then(running => {
+            runInAction(() => {
+              this.listening = running;
+            });
+          })
+          .catch(() => {});
+      }, 1500);
     } catch (error) {
       console.warn('[WakeWordStore] failed to start listener:', error);
       this.listening = false;

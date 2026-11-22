@@ -52,7 +52,19 @@ class WakeWordModule(reactContext: ReactApplicationContext) :
   }
 
   override fun beginTeaching() {
-    WakeWordTeacher.begin(reactApplicationContext)
+    try {
+      WakeWordTeacher.begin(reactApplicationContext)
+    } catch (t: Throwable) {
+      // A native failure here must never take the app down with it: the
+      // teach sheet listens for this event and shows the error instead.
+      try {
+        reactApplicationContext
+            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+            .emit(TEACH_ERROR_EVENT_NAME, t.message ?: t.toString())
+      } catch (ignored: Throwable) {
+        // Bridge not ready; nothing else can be done with the error.
+      }
+    }
   }
 
   override fun addTeachingTake(pcmBase64: String, promise: Promise) {
@@ -105,5 +117,6 @@ class WakeWordModule(reactContext: ReactApplicationContext) :
 
   companion object {
     const val EVENT_NAME = "WakeWordDetected"
+    const val TEACH_ERROR_EVENT_NAME = "WakeWordTeachError"
   }
 }

@@ -50,7 +50,9 @@ class WakeWordDetector(context: Context, phrase: WakePhrase) : WakeScorer {
     classifierInterpreter =
         Interpreter(
             loadModel(appContext, phrase.classifierAsset),
-            Interpreter.Options().setNumThreads(2),
+            // Same no-XNNPack rule as WakeWordPipeline: construction-time
+            // delegate allocation is the fragile step on some devices.
+            Interpreter.Options().setNumThreads(2).setUseXNNPACK(false),
         )
     classifierInterpreter.allocateTensors()
   }

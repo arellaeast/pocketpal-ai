@@ -15,7 +15,11 @@ export interface Spec extends TurboModule {
    * not running and relaunched it. Clears the pending flag.
    */
   consumePendingWake(): Promise<boolean>;
-  /** Start a teach-a-name session (see WakeWordTeacher). */
+  /**
+   * Start a teach-a-name session (see WakeWordTeacher). A native failure
+   * is reported as a `WakeWordTeachError` device event carrying the error
+   * message, never as a crash.
+   */
   beginTeaching(): void;
   /**
    * Analyze one recorded take (base64 little-endian 16 kHz PCM). Resolves
