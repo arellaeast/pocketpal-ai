@@ -187,17 +187,17 @@ class WakeWordService : Service() {
                     }
                 val minBuffer =
                     AudioRecord.getMinBufferSize(
-                        WakeWordDetector.SAMPLE_RATE,
+                        WakeWordPipeline.SAMPLE_RATE,
                         AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT,
                     )
                 record =
                     AudioRecord(
                         MediaRecorder.AudioSource.MIC,
-                        WakeWordDetector.SAMPLE_RATE,
+                        WakeWordPipeline.SAMPLE_RATE,
                         AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT,
-                        maxOf(minBuffer, WakeWordDetector.FRAME_SAMPLES * 4),
+                        maxOf(minBuffer, WakeWordPipeline.FRAME_SAMPLES * 4),
                     )
                 if (record.state != AudioRecord.STATE_INITIALIZED) {
                   Log.w(TAG, "AudioRecord failed to initialize")
@@ -206,7 +206,7 @@ class WakeWordService : Service() {
                 }
                 record.startRecording()
 
-                val frame = ShortArray(WakeWordDetector.FRAME_SAMPLES)
+                val frame = ShortArray(WakeWordPipeline.FRAME_SAMPLES)
                 var lastTriggerMs = 0L
                 while (capturing) {
                   var filled = 0
