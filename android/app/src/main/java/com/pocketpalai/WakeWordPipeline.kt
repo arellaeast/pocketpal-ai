@@ -59,12 +59,17 @@ class WakeWordPipeline(context: Context) {
 
   init {
     val appContext = context.applicationContext
-    // No XNNPack: the interpreter constructor allocates tensors with the
-    // default delegate already applied, and the mel model's input shape is
-    // dynamic (-1 samples), which overflows that allocation
-    // ("BytesRequired number of elements overflowed") on some devices —
-    // the resize below happens after construction, too late to help.
-    // Plain CPU inference is fast enough for these small models.
+    // No XNNPack, plain CPU: deterministic and fast enough for these
+    // small models. NOTE: the bundled mel and embedding models are
+    // fixed-shape exports (input [1, 1760] samples / [1, 76, 32, 1]).
+    // The upstream openWakeWord tflite files carry -1 dynamic dims in
+    // their tensor shape signatures, and the interpreter constructor's
+    // eager tensor allocation overflows on those ("BytesRequired
+    // number of elements overflowed" in CONV_2D prepare) — that was
+    // the real cause of the wake word crashes. The assets in this repo
+    // were patched in place on 2026-11-22 (patch-models.py in the
+    // build workspace); do not swap in fresh upstream copies without
+    // re-applying the fixed shapes.
     val options = Interpreter.Options().setNumThreads(2).setUseXNNPACK(false)
 
     melInterpreter = Interpreter(loadModel(appContext, MEL_ASSET), options)
