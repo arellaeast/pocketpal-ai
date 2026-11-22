@@ -37,6 +37,7 @@ class WakeWordService : Service() {
 
     const val EXTRA_PHRASE = "phraseKey"
     const val EXTRA_THRESHOLD = "threshold"
+    const val EXTRA_PAUSE = "pause"
 
     private const val PREFS_NAME = "wake_word"
     private const val PREF_PENDING_WAKE_TS = "pending_wake_ts"
@@ -64,6 +65,23 @@ class WakeWordService : Service() {
       context.stopService(Intent(context, WakeWordService::class.java))
     }
 
+    /**
+     * Park capture while a voice conversation owns the mic. Routed through
+     * startForegroundService like a normal start; the service stays alive
+     * and foreground with capture off, so resuming needs no service restart.
+     */
+    fun pause(context: Context) {
+      val intent =
+          Intent(context, WakeWordService::class.java).apply {
+            putExtra(EXTRA_PAUSE, true)
+          }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        context.startForegroundService(intent)
+      } else {
+        context.startService(intent)
+      }
+    }
+
     fun consumePendingWake(context: Context): Boolean {
       val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
       val ts = prefs.getLong(PREF_PENDING_WAKE_TS, 0L)
@@ -85,6 +103,7 @@ class WakeWordService : Service() {
 
   @Volatile private var capturing = false
   private var captureThread: Thread? = null
+  private var lastPhraseLabel: String = WakePhrases.ALL[0].label
 
   override fun onBind(intent: Intent?): IBinder? = null
 
@@ -103,21 +122,34 @@ class WakeWordService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    val pause = intent?.getBooleanExtra(EXTRA_PAUSE, false) ?: false
     val phraseKey = intent?.getStringExtra(EXTRA_PHRASE) ?: WakePhrases.ALL[0].key
     val threshold = intent?.getDoubleExtra(EXTRA_THRESHOLD, 0.5) ?: 0.5
-    Log.i(TAG, "onStartCommand phrase=$phraseKey threshold=$threshold")
+    Log.i(TAG, "onStartCommand phrase=$phraseKey threshold=$threshold pause=$pause")
 
+    // A startForegroundService() call obliges a startForeground() within
+    // a few seconds, whatever the intent turns out to be — a pause, or a
+    // taught phrase that no longer exists. Go foreground FIRST, with the
+    // best label available, and only then act on the intent. The old
+    // missing-template early return skipped it and Android killed the
+    // whole process (ForegroundServiceDidNotStartInTimeException).
+    var templateMissing = false
     val phraseLabel: String
-    if (phraseKey == WakePhrases.CUSTOM_KEY) {
+    if (pause) {
+      phraseLabel = lastPhraseLabel
+    } else if (phraseKey == WakePhrases.CUSTOM_KEY) {
       val template = CustomWakeWordTemplate.load(this)
       if (template == null) {
-        // Asked to listen for a taught phrase that does not exist.
-        stopSelf()
-        return START_NOT_STICKY
+        templateMissing = true
+        phraseLabel = lastPhraseLabel
+      } else {
+        phraseLabel = template.name
       }
-      phraseLabel = template.name
     } else {
       phraseLabel = WakePhrases.byKey(phraseKey).label
+    }
+    if (!pause && !templateMissing) {
+      lastPhraseLabel = phraseLabel
     }
 
     val notification = buildNotification(phraseLabel)
@@ -131,6 +163,20 @@ class WakeWordService : Service() {
       startForeground(NOTIFICATION_ID, notification)
     }
     isRunning = true
+
+    if (pause) {
+      // Voice mode is taking the mic: stop capturing but stay alive and
+      // foreground, so resuming is a fresh capture in this same service.
+      // The old stop/start cycle around every voice session raced
+      // Android's foreground-service deadline and crashed the app.
+      stopCapture()
+      return START_STICKY
+    }
+    if (templateMissing) {
+      // Asked to listen for a taught phrase that does not exist.
+      stopSelf()
+      return START_NOT_STICKY
+    }
 
     stopCapture()
     startCapture(phraseKey, threshold)

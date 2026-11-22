@@ -43,6 +43,10 @@ class WakeWordModule(reactContext: ReactApplicationContext) :
     WakeWordService.stop(reactApplicationContext)
   }
 
+  override fun pauseListening() {
+    WakeWordService.pause(reactApplicationContext)
+  }
+
   override fun isListening(promise: Promise) {
     promise.resolve(WakeWordService.isRunning)
   }

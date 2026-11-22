@@ -183,7 +183,17 @@ class WakeWordStore {
       return;
     }
     this.suspended = true;
-    this.stopNative();
+    // Pause in place instead of stopping the service: voice mode only
+    // needs the mic for a while, and tearing the foreground service
+    // down and back up around every voice session raced Android's
+    // foreground-service start deadline and crashed the app. The
+    // service stays foreground with capture off; resume restarts it.
+    try {
+      NativeWakeWord.pauseListening();
+    } catch (error) {
+      console.warn('[WakeWordStore] failed to pause listener:', error);
+    }
+    this.listening = false;
   }
 
   resumeNative(): void {

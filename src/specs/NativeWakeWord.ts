@@ -9,6 +9,11 @@ export interface Spec extends TurboModule {
    */
   startListening(phraseKey: string, threshold: number): void;
   stopListening(): void;
+  /**
+   * Park capture while a voice conversation owns the microphone. The
+   * service stays alive and foreground; startListening resumes capture.
+   */
+  pauseListening(): void;
   isListening(): Promise<boolean>;
   /**
    * True (once) if the service detected the wake word while the app was

@@ -122,10 +122,27 @@ export const ChatScreen: React.FC = observer(() => {
       return;
     }
     wakeWordStore.clearPendingVoiceStart();
-    requestVoiceEntry({
-      openModelPicker: () => {},
-      focusInput: () => {},
-    });
+    void (async () => {
+      // A wake can land on a cold app (the listener relaunched it, or
+      // the process restarted): no model is loaded then, and voice
+      // entry dead-ends on "Model not loaded". Check first and reload
+      // the last used model before entering, so the conversation has
+      // something to talk to.
+      if (!modelStore.contextId && !modelStore.isContextLoading) {
+        const model = modelStore.lastUsedModel ?? modelStore.activeModel;
+        if (model) {
+          try {
+            await modelStore.initContext(model);
+          } catch (error) {
+            console.warn('[ChatScreen] wake auto-load failed:', error);
+          }
+        }
+      }
+      requestVoiceEntry({
+        openModelPicker: () => {},
+        focusInput: () => {},
+      });
+    })();
   }, [requestVoiceEntry]);
   React.useEffect(
     () =>
