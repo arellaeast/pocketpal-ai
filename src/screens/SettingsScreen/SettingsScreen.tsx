@@ -50,6 +50,7 @@ import {AuthSheet} from '../../components/PalsHub';
 import {AccountCard} from './AccountCard';
 import {LocalApiServerCard} from './LocalApiServerCard';
 import {WakeWordCard} from './WakeWordCard';
+import {DiagnosticsCard} from './DiagnosticsCard';
 import {PurchasesCard} from './PurchasesCard';
 
 import {useTheme} from '../../hooks';
@@ -1693,6 +1694,8 @@ export const SettingsScreen: React.FC = observer(() => {
           <LocalApiServerCard />
 
           <WakeWordCard />
+
+          <DiagnosticsCard />
 
           {/* Export Options */}
           <Card elevation={0} style={styles.card}>

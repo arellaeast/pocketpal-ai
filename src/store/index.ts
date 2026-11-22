@@ -15,3 +15,4 @@ export * from './PurchaseStore';
 export * from './VoiceModeStore';
 export * from './LocalApiServerStore';
 export * from './WakeWordStore';
+export * from './DiagnosticsStore';

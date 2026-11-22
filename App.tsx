@@ -20,7 +20,16 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 
-import {asrStore, purchaseStore, ttsStore, uiStore} from './src/store';
+import {
+  asrStore,
+  diagnosticsStore,
+  modelStore,
+  purchaseStore,
+  ttsStore,
+  uiStore,
+  voiceModeStore,
+  wakeWordStore,
+} from './src/store';
 import {useTheme} from './src/hooks';
 import {useDeepLinking} from './src/hooks/useDeepLinking';
 import {useWakeWordListener} from './src/hooks/useWakeWord';
@@ -134,6 +143,29 @@ const App = observer(() => {
     purchaseStore
       .start(__E2E__ ? {store: fakeStore, beforeInit: fakeStore.restore} : {})
       .catch(error => console.warn('Purchase recovery failed:', error));
+  }, []);
+
+  // Initialize diagnostics (fork feature): session/crash tracking, the
+  // JS error handler, and state snapshots for shared bundles.
+  React.useEffect(() => {
+    diagnosticsStore.installGlobalErrorHandler();
+    diagnosticsStore.registerSnapshotProvider('wakeWord', () => ({
+      enabled: wakeWordStore.enabled,
+      listening: wakeWordStore.listening,
+      phraseKey: wakeWordStore.phraseKey,
+      hasCustom: wakeWordStore.hasCustom,
+    }));
+    diagnosticsStore.registerSnapshotProvider('voice', () => ({
+      phase: voiceModeStore.phase,
+      lastError: voiceModeStore.lastError,
+    }));
+    diagnosticsStore.registerSnapshotProvider('model', () => ({
+      activeModel: modelStore.activeModel?.name ?? null,
+      autoReleaseEnabled: modelStore.isAutoReleaseEnabled,
+    }));
+    diagnosticsStore.startSession().catch(() => {
+      // Diagnostics must never break app start.
+    });
   }, []);
 
   return (

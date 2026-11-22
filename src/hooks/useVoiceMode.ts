@@ -41,6 +41,7 @@ import {CascadeVoiceEngine} from '../services/voice/cascadeEngine';
 import {
   asrStore,
   chatSessionStore,
+  diagnosticsStore,
   modelStore,
   ttsStore,
   uiStore,
@@ -195,6 +196,7 @@ class VoiceModeController {
       return;
     }
     if (timedOut) {
+      diagnosticsStore.reportFailure('voice-start-timeout');
       warn(uiStore.l10n.voiceMode.startFailed);
       return;
     }
@@ -298,6 +300,7 @@ class VoiceModeController {
       await withStartTimeout(this.engine.prepare(tier));
     } catch (err) {
       console.warn('[voiceMode] prepare failed:', err);
+      diagnosticsStore.reportFailure('voice-prepare', err);
       if (session === this.session) {
         warn(uiStore.l10n.voiceMode.startFailed);
         this.exit('start_failed');

@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {openPlus} from '../services/plus/gate';
 import {VoiceEntitlement, voiceModeDeviceSupported} from '../services/voice';
 
+import {diagnosticsStore} from './DiagnosticsStore';
 import {modelStore} from './ModelStore';
 
 export type VoicePhase =
@@ -75,6 +76,7 @@ export class VoiceModeStore {
   setPhase(phase: VoicePhase): void {
     if (phase !== this.phase) {
       this.lastError = null;
+      diagnosticsStore.log('voice', `phase ${this.phase} -> ${phase}`);
     }
     this.phase = phase;
     if (phase === 'closed') {
@@ -91,6 +93,9 @@ export class VoiceModeStore {
   /** `useVoiceMode` only. */
   setLastError(error: VoiceError | null): void {
     this.lastError = error;
+    if (error) {
+      diagnosticsStore.log('voice', `error ${error}`);
+    }
   }
 
   setPresentation(presentation: VoicePresentation): void {

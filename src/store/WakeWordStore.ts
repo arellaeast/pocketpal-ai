@@ -3,6 +3,7 @@ import {makePersistable} from 'mobx-persist-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import NativeWakeWord from '../specs/NativeWakeWord';
+import {diagnosticsStore} from './DiagnosticsStore';
 import {modelStore} from './ModelStore';
 
 export type WakeWordPhraseKey = 'hey_jarvis' | 'alexa' | 'hey_mycroft' | 'custom';
@@ -82,6 +83,7 @@ class WakeWordStore {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+    diagnosticsStore.log('wake', `listener ${enabled ? 'enabled' : 'disabled'}`);
     this.syncModelHold();
     if (enabled) {
       this.startNative();
@@ -250,6 +252,7 @@ class WakeWordStore {
       }
     } catch (error) {
       console.warn('[WakeWordStore] sync failed:', error);
+      diagnosticsStore.logError('wake-sync', error);
     }
   }
 
@@ -266,6 +269,7 @@ class WakeWordStore {
       return;
     }
     this.lastDetectionAt = now;
+    diagnosticsStore.log('wake', `detected (${this.phraseKey})`);
     this.pendingVoiceStart = true;
   }
 

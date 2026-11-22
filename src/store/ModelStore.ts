@@ -22,6 +22,7 @@ import {
 } from '../api/completionEngines';
 
 import {uiStore, hfStore} from '.';
+import {diagnosticsStore} from './DiagnosticsStore';
 import {serverStore} from './ServerStore';
 import {routerStore} from './RouterStore';
 import {chatSessionStore} from './ChatSessionStore';
@@ -1162,6 +1163,7 @@ class ModelStore {
   // Auto-release management methods
   disableAutoRelease = (reason: string) => {
     this.autoReleaseDisabledReasons.add(reason);
+    diagnosticsStore.log('model', `auto-release disabled: ${reason}`);
     console.log(
       `Auto-release disabled: ${reason}`,
       Array.from(this.autoReleaseDisabledReasons),
@@ -1170,6 +1172,7 @@ class ModelStore {
 
   enableAutoRelease = (reason: string) => {
     this.autoReleaseDisabledReasons.delete(reason);
+    diagnosticsStore.log('model', `auto-release enabled: ${reason}`);
     console.log(
       `Auto-release enabled: ${reason}`,
       Array.from(this.autoReleaseDisabledReasons),

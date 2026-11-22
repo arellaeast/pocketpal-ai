@@ -315,6 +315,15 @@
         "finishFailed": "That did not save. Record a few more takes and try again.",
         "beginFailed": "The name teacher could not start on this phone. Close this and try again."
       }
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "description": "Anonymous technical logs that help the developer fix problems: wake word detections, voice mode starts and failures, model loads, and crashes. No chats, no audio, nothing personal is ever included.",
+      "autoSend": "Send problem reports automatically",
+      "autoSendDescription": "When voice mode fails to start or the app crashes, send the log on its own. Reports only go out if you turn this on.",
+      "share": "Share diagnostics with developer",
+      "anonymousId": "Anonymous ID: {{id}}",
+      "eventsRecorded": "{{count}} events recorded"
     }
   },
   "memory": {
