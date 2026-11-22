@@ -3,6 +3,7 @@ import {makePersistable} from 'mobx-persist-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import NativeWakeWord from '../specs/NativeWakeWord';
+import {modelStore} from './ModelStore';
 
 export type WakeWordPhraseKey = 'hey_jarvis' | 'alexa' | 'hey_mycroft' | 'custom';
 
@@ -79,10 +80,29 @@ class WakeWordStore {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+    this.syncModelHold();
     if (enabled) {
       this.startNative();
     } else {
       this.stopNative();
+    }
+  }
+
+  /**
+   * While the listener is on, the chat model has to stay loaded.
+   * PocketPal otherwise auto-releases the context whenever the app
+   * backgrounds, and the wake flow flickers through background on
+   * every detection (the service relaunches the activity), which
+   * unloaded the model mid-entry, failed voice prepare with "ASR
+   * context released while loading", and could leave the app sitting
+   * on "Model not loaded". Uses ModelStore's reason-set hold, the
+   * same mechanism the camera flow uses.
+   */
+  private syncModelHold(): void {
+    if (this.enabled) {
+      modelStore.disableAutoRelease('wake-word-listener');
+    } else {
+      modelStore.enableAutoRelease('wake-word-listener');
     }
   }
 
@@ -212,6 +232,9 @@ class WakeWordStore {
    * that relaunched the app while it was closed.
    */
   async syncNative(): Promise<void> {
+    // Also re-asserts the model hold after a restart rehydrates the
+    // persisted enabled flag without going through setEnabled.
+    this.syncModelHold();
     try {
       const running = await NativeWakeWord.isListening();
       runInAction(() => {
